@@ -17,6 +17,14 @@ dcdx_info_fields = ["zeta_y", "zeta_u", "zeta_s", "gamma_y", "gamma_u",
                     "gamma_s", "rho_y", "rho_u", "rho_s"]
 dcdxInfo = collections.namedtuple("dcdxInfo", dcdx_info_fields)
 
+def convert_segwise(x,args):
+    l = len(args)
+    if l==1:
+        return args[0][0]
+    split = l//2
+    return ca.if_else(x<args[split-1][1],convert_segwise(x,args[:split]),convert_segwise(x,args[split:]))
+
+
 
 SUPPORTED_ITER_TYPES = (tuple, list, np.ndarray)
 SYMPY_TO_CASADI_API_MAPPING = {"ImmutableDenseMatrix": ca.blockcat,
@@ -24,6 +32,7 @@ SYMPY_TO_CASADI_API_MAPPING = {"ImmutableDenseMatrix": ca.blockcat,
                                "Abs": ca.fabs,
                                "sec": lambda x: (1 / ca.cos(x)),
                                "cosec": lambda x: (1 / ca.sin(x)),
+                               "Segwise": lambda *args: convert_segwise(args[0],args[1:])
                                }
 
 
