@@ -6,6 +6,13 @@ class Segwise(sym.Function):
 
     >>> Segwise(bounding_symbol, (equation,upper_bound),(equation_2, upper_bound_2)...)"""
     nargs=None
+    @classmethod
+    def eval(cls, x, *args):
+        if x.is_Number:
+            for eq,ub in args:
+                if ub>=x:
+                    return eq
+
 def cubic_spline(x,x_data,y_data):
     """Create a cubic spline"""
     spline = CubicSpline(x_data, y_data, bc_type="natural")
