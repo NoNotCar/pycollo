@@ -14,3 +14,9 @@ def test_cubic_spline():
     spline_sci = CubicSpline(x_data, y_data, bc_type="natural")
     for tx in test_points:
         assert math.isclose(spline_sym.subs(x, tx), spline_sci(tx))
+
+def test_segwise_asserts_continuity():
+    x = sym.Symbol("x")
+    with pytest.raises(ValueError) as excinfo:
+        pycollo.functions.Segwise(x,(-x,0.0),(x+1,1.0))
+    assert "are not continuous" in str(excinfo.value)

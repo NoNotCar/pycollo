@@ -1,5 +1,6 @@
 import sympy as sym
 from scipy.interpolate import CubicSpline
+import cmath as math
 
 class Segwise(sym.Function):
     """Piecewise function for sequential linear segments.
@@ -7,11 +8,32 @@ class Segwise(sym.Function):
     arguments: Segwise(bounding_symbol, (equation, upper_bound), (equation_2, upper_bound_2))"""
     nargs=None
     @classmethod
-    def eval(cls, x, *args):
-        if x.is_Number:
-            for eq,ub in args:
-                if ub>=x:
-                    return eq
+    def __new__(cls, *args, **kwargs):
+        try:
+            # check continuity
+            x = args[1]
+            equations = args[2:]
+            if len(equations)<2:
+                raise ValueError("Segwise requires at least 2 segments to do anything")
+            for i,(eq,ub) in enumerate(equations[:-1]):
+                s1 = eq.subs(x,ub)
+                s2 = equations[i+1][0].subs(x,ub)
+                if not s1.is_Number:
+                    raise ValueError(f"Segment {i} contains other variables other than {x}")
+                if not s2.is_Number:
+                    raise ValueError(f"Segment {i+1} contains other variables other than {x}")
+                if not math.isclose(s1,s2,abs_tol=1e-9):
+                    raise ValueError(f"Segments {i} and {i+1} are not continuous.")
+        except IndexError:
+            raise ValueError("Segwise created with zero arguments")
+
+        return super().__new__(*args,**kwargs)
+    def _eval_subs(self, old, new):
+        if new.is_Number:
+            for eq,ub in self.args[1:]:
+                if ub>=new:
+                    return eq.subs(old,new)
+        return super()._eval_subs(old,new)
 
 def cubic_spline(x,x_data,y_data):
     """Create a cubic spline"""
