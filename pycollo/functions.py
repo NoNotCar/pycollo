@@ -4,7 +4,7 @@ from scipy.interpolate import CubicSpline
 class Segwise(sym.Function):
     """Piecewise function for sequential linear segments.
 
-    >>> Segwise(bounding_symbol, (equation,upper_bound),(equation_2, upper_bound_2)...)"""
+    arguments: Segwise(bounding_symbol, (equation, upper_bound), (equation_2, upper_bound_2))"""
     nargs=None
     @classmethod
     def eval(cls, x, *args):

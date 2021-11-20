@@ -3,8 +3,10 @@
 import casadi as ca
 import pytest
 import sympy as sym
+import math
 
 from pycollo.utils import sympy_to_casadi
+from pycollo import functions
 
 
 @pytest.mark.parametrize("in_mapping", [(0, 0), (1, 0), (0, 1), (1, 1)])
@@ -54,3 +56,15 @@ def test_sympy_to_casadi(in_mapping, utils):
     assert str(expr_sym) == "Matrix([[x*sqrt(y)], [sin(x + y)], [Abs(x - y)]])"
     assert str(expr_ca) == "[(x*sqrt(y)), sin((x+y)), fabs((x-y))]"
     utils.assert_ca_expr_identical(expr_ca, expr_sym)
+
+
+def test_cubic_spline_translation():
+    x_sympy = sym.Symbol("x")
+    x_casadi = ca.SX.sym("x")
+    spline_sym = functions.cubic_spline(x_sympy,[0,1,2,3,4,5],[0,1,0,1,2,0])
+    sym_mapping = {x_sympy: x_casadi}
+    spline_ca, sym_mapping = sympy_to_casadi(spline_sym, sym_mapping)
+    spline_fun = ca.Function('fun', [x_casadi], [spline_ca])
+    test_points = [0.5,1.2,2.4,3.8,4.2]
+    for tx in test_points:
+        assert math.isclose(spline_sym.subs(x_sympy,tx),float(spline_fun(tx)))
