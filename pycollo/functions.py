@@ -12,6 +12,8 @@ class Segwise(sym.Function):
         try:
             # check continuity
             x = args[1]
+            if not isinstance(x,sym.Symbol):
+                raise ValueError("Segwise's first argument must be a symbol")
             equations = args[2:]
             if len(equations)<2:
                 raise ValueError("Segwise requires at least 2 segments to do anything")
@@ -34,6 +36,12 @@ class Segwise(sym.Function):
                 if ub>=new:
                     return eq.subs(old,new)
         return super()._eval_subs(old,new)
+    def _eval_derivative(self, s):
+        if s!=self.args[0]:
+            return 0
+        return Segwise(s,*((sym.diff(eq,s),ub) for eq,ub in self.args[1:]))
+
+
 
 def cubic_spline(x,x_data,y_data):
     """Create a cubic spline"""
