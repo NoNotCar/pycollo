@@ -17,6 +17,20 @@ class Segwise(sym.Function):
             equations = args[2:]
             if len(equations)<2:
                 raise ValueError("Segwise requires at least 2 segments to do anything")
+
+            try:
+                for i,(eq,ub) in enumerate(equations):
+                    if not isinstance(eq,sym.Basic):
+                        raise ValueError(f"Segment {i} does not have a valid equation")
+                    if isinstance(ub,sym.Basic) and not ub.is_Number:
+                        raise ValueError(f"Segment {i} does not have a constant upper bound")
+            except TypeError:
+                raise ValueError("One or more segments are in an incorrect format")
+            except ValueError as v:
+                if "too many values to unpack (expected 2)" in v.args:
+                    raise ValueError("One or more segments are in an incorrect format")
+                raise v
+
             for i,(eq,ub) in enumerate(equations[:-1]):
                 s1 = eq.subs(x,ub)
                 s2 = equations[i+1][0].subs(x,ub)
@@ -26,6 +40,8 @@ class Segwise(sym.Function):
                     raise ValueError(f"Segment {i+1} contains other variables other than {x}")
                 if not math.isclose(s1,s2,abs_tol=1e-9):
                     raise ValueError(f"Segments {i} and {i+1} are not continuous.")
+                if ub>equations[i+1][1]:
+                    raise ValueError(f"Segment {i} has a higher upper bound than segment {i+1}")
         except IndexError:
             raise ValueError("Segwise created with zero arguments")
 

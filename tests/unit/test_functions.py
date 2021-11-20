@@ -3,7 +3,8 @@ import pycollo
 from scipy.interpolate import CubicSpline
 import sympy as sym
 import cmath as math
-from sympy.abc import x
+from sympy.abc import x, y
+
 def test_cubic_spline():
     """Check that scipy's spline fit matches with the generated Segwise function evaluations"""
     x_data = [0, 1, 2, 3, 4, 5]
@@ -50,3 +51,26 @@ def test_segwise_one_segment():
     with pytest.raises(ValueError) as excinfo:
         pycollo.functions.Segwise(x,(-x,0.0))
     assert "at least 2 segments" in str(excinfo.value)
+
+def test_segwise_bad_segment_format():
+    with pytest.raises(ValueError) as excinfo:
+        pycollo.functions.Segwise(x,(-x,0.0,1.0),(x+1,1.0))
+    assert "incorrect format" in str(excinfo.value)
+    with pytest.raises(ValueError) as excinfo:
+        pycollo.functions.Segwise(x,(-x),(x+1,1.0))
+    assert "incorrect format" in str(excinfo.value)
+
+def test_segwise_nonsequential_bounds():
+    with pytest.raises(ValueError) as excinfo:
+        pycollo.functions.Segwise(x,(x,1.0),(x**2,0.0))
+    assert "higher upper bound" in str(excinfo.value)
+
+def test_segwise_extra_variables():
+    with pytest.raises(ValueError) as excinfo:
+        pycollo.functions.Segwise(x,(x,0.0),(x**2+y,1.0))
+    assert "other variables" in str(excinfo.value)
+
+def test_segwise_variable_bounds():
+    with pytest.raises(ValueError) as excinfo:
+        pycollo.functions.Segwise(x,(x,0.0),(x**2,y))
+    assert "constant upper bound" in str(excinfo.value)
