@@ -5,6 +5,7 @@ import sympy as sym
 import cmath as math
 from sympy.abc import x, y
 import numpy as np
+s = pycollo.functions.Segwise.s
 
 def test_cubic_spline():
     """Check that scipy's spline fit matches with the generated Segwise function evaluations"""
@@ -29,12 +30,12 @@ def test_cubic_spline_derivative():
 
 def test_segwise_asserts_continuity():
     with pytest.raises(ValueError) as excinfo:
-        pycollo.functions.Segwise(x,(-x,0.0),(x+1,1.0))
+        pycollo.functions.Segwise(x,(-s,0.0),(s+1,1.0))
     assert "are not continuous" in str(excinfo.value)
 
 def test_segwise_asserts_derivative_continuity():
     with pytest.raises(ValueError) as excinfo:
-        pycollo.functions.Segwise(x,(-x,0.0),(2*x,1.0))
+        pycollo.functions.Segwise(x,(-s,0.0),(2*s,1.0))
     assert "derivative" in str(excinfo.value)
 
 def test_segwise_no_arguments():
@@ -48,49 +49,54 @@ def test_segwise_one_argument():
         pycollo.functions.Segwise(x)
     assert "at least 2 segments" in str(excinfo.value)
 
-def test_segwise_no_symbol():
+def test_segwise_no_expression():
     with pytest.raises(ValueError) as excinfo:
-        pycollo.functions.Segwise(0.1,(-x,0.0),(x+1,1.0))
-    assert "symbol" in str(excinfo.value)
+        pycollo.functions.Segwise(0.1,(-s,0.0),(s+1,1.0))
+    assert "sympy expression" in str(excinfo.value)
 
 def test_segwise_one_segment():
     with pytest.raises(ValueError) as excinfo:
-        pycollo.functions.Segwise(x,(-x,0.0))
+        pycollo.functions.Segwise(x,(-s,0.0))
     assert "at least 2 segments" in str(excinfo.value)
 
 def test_segwise_bad_segment_format():
     with pytest.raises(ValueError) as excinfo:
-        pycollo.functions.Segwise(x,(-x,0.0,1.0),(x+1,1.0))
+        pycollo.functions.Segwise(x,(-s,0.0,1.0),(s+1,1.0))
     assert "incorrect format" in str(excinfo.value)
     with pytest.raises(ValueError) as excinfo:
-        pycollo.functions.Segwise(x,(-x),(x+1,1.0))
+        pycollo.functions.Segwise(x,(-s),(s+1,1.0))
     assert "incorrect format" in str(excinfo.value)
 
 def test_segwise_nonsequential_bounds():
     with pytest.raises(ValueError) as excinfo:
-        pycollo.functions.Segwise(x,(x,1.0),(x,0.0))
+        pycollo.functions.Segwise(x,(s,1.0),(s,0.0))
     assert "higher upper bound" in str(excinfo.value)
 
 def test_segwise_extra_variables():
     with pytest.raises(ValueError) as excinfo:
-        pycollo.functions.Segwise(x,(x,0.0),(x**2+y,1.0))
+        pycollo.functions.Segwise(x,(s,0.0),(s**2+y,1.0))
     assert "other variables" in str(excinfo.value)
 
 def test_segwise_variable_bounds():
     with pytest.raises(ValueError) as excinfo:
-        pycollo.functions.Segwise(x,(x,0.0),(x**2,y))
+        pycollo.functions.Segwise(x,(s,0.0),(s**2,y))
     assert "constant upper bound" in str(excinfo.value)
 
 def test_segwise_equispaced_detection():
-    nonequispaced = pycollo.functions.Segwise(x,(x,0.0),(x,1.0),(x,3.0))
+    nonequispaced = pycollo.functions.Segwise(x,(s,0.0),(s,1.0),(s,3.0))
     assert not nonequispaced.equispaced
-    equispaced = pycollo.functions.Segwise(x,(x,0.0),(x,1.0),(x,2.0))
+    equispaced = pycollo.functions.Segwise(x,(s,0.0),(s,1.0),(s,2.0))
     assert equispaced.equispaced
 
 def test_segwise_infinite_bounds():
     # don't want functions with infinite bounds to be considered equispaced
-    seg = pycollo.functions.Segwise(x,(x,0.0),(x,sym.oo))
+    seg = pycollo.functions.Segwise(x,(s,0.0),(s,sym.oo))
     assert not seg.equispaced
     # some people might use np.inf instead
-    npseg = pycollo.functions.Segwise(x, (x, 0.0), (x, np.inf))
+    npseg = pycollo.functions.Segwise(x, (s, 0.0), (s, np.inf))
     assert not npseg.equispaced
+
+def test_segwise_with_expression():
+    seg = pycollo.functions.Segwise(x+y,(s**3,0.0),(s**2,np.inf))
+    assert seg.subs(x, -1.0).subs(y, -1.0) == -8.0
+    assert seg.subs(y,1.0).subs(x,1.0) == 4.0

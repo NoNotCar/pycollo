@@ -5,8 +5,9 @@ import cmath as math
 class Segwise(sym.Function):
     """Piecewise function for sequential linear segments.
 
-    arguments: Segwise(bounding_symbol, (equation, upper_bound), (equation_2, upper_bound_2))"""
+    arguments: Segwise(argument, (equation (in Segwise.s), upper_bound), (equation_2, upper_bound_2))"""
     nargs=None
+    s = sym.Symbol("s")
     _equispaced = True
     @classmethod
     def __new__(cls, *args, **kwargs):
@@ -17,8 +18,8 @@ class Segwise(sym.Function):
         except IndexError:
             raise ValueError("Segwise created with zero arguments")
 
-        if not isinstance(x, sym.Symbol):
-            raise ValueError("Segwise's first argument must be a symbol")
+        if not isinstance(x, sym.Basic):
+            raise ValueError("Segwise's first argument must a sympy expression")
         if len(equations)<2:
             raise ValueError("Segwise requires at least 2 segments to do anything")
         try:
@@ -40,14 +41,14 @@ class Segwise(sym.Function):
         segment_spacing = equations[1][1]-equations[0][1]
         # check continuity
         for i,(eq,ub) in enumerate(equations[:-1]):
-            s1 = eq.subs(x,ub)
-            s2 = equations[i+1][0].subs(x,ub)
-            d1 = sym.diff(eq,x).subs(x,ub)
-            d2 = sym.diff(equations[i + 1][0],x).subs(x, ub)
+            s1 = eq.subs(cls.s,ub)
+            s2 = equations[i+1][0].subs(cls.s,ub)
+            d1 = sym.diff(eq,cls.s).subs(cls.s,ub)
+            d2 = sym.diff(equations[i + 1][0],cls.s).subs(cls.s, ub)
             if not s1.is_Number:
-                raise ValueError(f"Segment {i} contains other variables other than {x}")
+                raise ValueError(f"Segment {i} contains other variables other than {cls.s}")
             if not s2.is_Number:
-                raise ValueError(f"Segment {i+1} contains other variables other than {x}")
+                raise ValueError(f"Segment {i+1} contains other variables other than {cls.s}")
             if not math.isclose(s1,s2,abs_tol=1e-9):
                 raise ValueError(f"Segments {i} and {i+1} are not continuous.")
             if not math.isclose(d1,d2,abs_tol=1e-9):
@@ -61,15 +62,14 @@ class Segwise(sym.Function):
         obj._equispaced = equispaced
         return obj
     def _eval_subs(self, old, new):
-        if new.is_Number:
+        sub_arg = self.args[0].subs(old,new)
+        if sub_arg.is_Number:
             for eq,ub in self.args[1:]:
-                if ub>=new:
-                    return eq.subs(old,new)
-        return super()._eval_subs(old,new)
+                if ub>=sub_arg:
+                    return eq.subs(self.s,sub_arg)
+        return Segwise(sub_arg,*self.args[1:])
     def _eval_derivative(self, s):
-        if s!=self.args[0]:
-            return 0
-        return Segwise(s,*((sym.diff(eq,s),ub) for eq,ub in self.args[1:]))
+        return sym.diff(self.args[0],s)*Segwise(self.args[0],*((sym.diff(eq,self.s),ub) for eq,ub in self.args[1:]))
     #readonly property
     @property
     def equispaced(self):
@@ -79,4 +79,4 @@ class Segwise(sym.Function):
 def cubic_spline(x,x_data,y_data):
     """Create a cubic spline"""
     spline = CubicSpline(x_data, y_data, bc_type="natural")
-    return Segwise(x,*[(sum(spline.c[m, i] * (x - px)**(3-m) for m in range(4)),spline.x[i+1]) for i,px in enumerate(spline.x[:-1])])
+    return Segwise(x,*[(sum(spline.c[m, i] * (Segwise.s - px)**(3-m) for m in range(4)),spline.x[i+1]) for i,px in enumerate(spline.x[:-1])])
