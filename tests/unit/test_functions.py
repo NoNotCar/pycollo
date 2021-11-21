@@ -31,6 +31,11 @@ def test_segwise_asserts_continuity():
         pycollo.functions.Segwise(x,(-x,0.0),(x+1,1.0))
     assert "are not continuous" in str(excinfo.value)
 
+def test_segwise_asserts_derivative_continuity():
+    with pytest.raises(ValueError) as excinfo:
+        pycollo.functions.Segwise(x,(-x,0.0),(2*x,1.0))
+    assert "derivative" in str(excinfo.value)
+
 def test_segwise_no_arguments():
     with pytest.raises(ValueError) as excinfo:
         pycollo.functions.Segwise()
@@ -62,7 +67,7 @@ def test_segwise_bad_segment_format():
 
 def test_segwise_nonsequential_bounds():
     with pytest.raises(ValueError) as excinfo:
-        pycollo.functions.Segwise(x,(x,1.0),(x**2,0.0))
+        pycollo.functions.Segwise(x,(x,1.0),(x,0.0))
     assert "higher upper bound" in str(excinfo.value)
 
 def test_segwise_extra_variables():

@@ -34,12 +34,16 @@ class Segwise(sym.Function):
             for i,(eq,ub) in enumerate(equations[:-1]):
                 s1 = eq.subs(x,ub)
                 s2 = equations[i+1][0].subs(x,ub)
+                d1 = sym.diff(eq,x).subs(x,ub)
+                d2 = sym.diff(equations[i + 1][0],x).subs(x, ub)
                 if not s1.is_Number:
                     raise ValueError(f"Segment {i} contains other variables other than {x}")
                 if not s2.is_Number:
                     raise ValueError(f"Segment {i+1} contains other variables other than {x}")
                 if not math.isclose(s1,s2,abs_tol=1e-9):
                     raise ValueError(f"Segments {i} and {i+1} are not continuous.")
+                if not math.isclose(d1,d2,abs_tol=1e-9):
+                    raise ValueError(f"Segments {i} and {i+1} do not have continuous 1st derivatives.")
                 if ub>equations[i+1][1]:
                     raise ValueError(f"Segment {i} has a higher upper bound than segment {i+1}")
         except IndexError:
