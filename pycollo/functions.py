@@ -56,10 +56,10 @@ class Segwise(sym.Function):
         equations = self.args[1:]
         # check continuity
         for i,(eq,ub) in enumerate(equations[:-1]):
-            s1 = eq.subs(self.s,ub)
-            s2 = equations[i+1][0].subs(self.s,ub)
-            d1 = sym.diff(eq,self.s).subs(self.s,ub)
-            d2 = sym.diff(equations[i + 1][0],self.s).subs(self.s, ub)
+            s1 = eq.subs(self.s,ub).evalf()
+            s2 = equations[i+1][0].subs(self.s,ub).evalf()
+            d1 = sym.diff(eq,self.s).subs(self.s,ub).evalf()
+            d2 = sym.diff(equations[i + 1][0],self.s).subs(self.s, ub).evalf()
             if not s1.is_Number:
                 print(f"Segment {i} contains other variables other than {self.s}")
                 return False
@@ -145,6 +145,12 @@ def cubic_spline(x, x_data, y_data, bounds: typing.Literal["natural", "not-a-kno
     # normalise spline to make 0 the first data point
     min_data = min(x_data)
     spline = CubicSpline([xd - min_data for xd in x_data], y_data, bc_type=bounds)
-    return (CyclicSegwise if bounds == "periodic" else Segwise)(x - min_data,*[
-        (sum(spline.c[m, i] * (Segwise.s - px) ** (3 - m) for m in range(4)), spline.x[i + 1]) for i, px in
-        enumerate(spline.x[:-1])])
+    return (CyclicSegwise if bounds == "periodic" else Segwise)(x - min_data,*[(sum(spline.c[m, i] * (Segwise.s - px)**(3-m) for m in range(4)),spline.x[i+1]) for i,px in enumerate(spline.x[:-1])])
+
+def softplus(x,k=1.0):
+    """Approximates x if x>0 else 0 safely"""
+    return Segwise(x,(1/k*sym.ln(1+sym.exp(Segwise.s*k)),0),(Segwise.s+1/k*sym.ln(1+sym.exp(-Segwise.s*k)),sym.oo))
+
+def logistic(x,k=1.0):
+    """Approximates 1 if x>0 else 0 safely"""
+    return 0.5*(sym.tanh(k*x)+1)
