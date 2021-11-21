@@ -4,6 +4,7 @@ from scipy.interpolate import CubicSpline
 import sympy as sym
 import cmath as math
 from sympy.abc import x, y
+import numpy as np
 
 def test_cubic_spline():
     """Check that scipy's spline fit matches with the generated Segwise function evaluations"""
@@ -79,3 +80,17 @@ def test_segwise_variable_bounds():
     with pytest.raises(ValueError) as excinfo:
         pycollo.functions.Segwise(x,(x,0.0),(x**2,y))
     assert "constant upper bound" in str(excinfo.value)
+
+def test_segwise_equispaced_detection():
+    nonequispaced = pycollo.functions.Segwise(x,(x,0.0),(x,1.0),(x,3.0))
+    assert not nonequispaced.equispaced
+    equispaced = pycollo.functions.Segwise(x,(x,0.0),(x,1.0),(x,2.0))
+    assert equispaced.equispaced
+
+def test_segwise_infinite_bounds():
+    # don't want functions with infinite bounds to be considered equispaced
+    seg = pycollo.functions.Segwise(x,(x,0.0),(x,sym.oo))
+    assert not seg.equispaced
+    # some people might use np.inf instead
+    npseg = pycollo.functions.Segwise(x, (x, 0.0), (x, np.inf))
+    assert not npseg.equispaced
