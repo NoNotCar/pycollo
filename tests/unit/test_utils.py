@@ -68,3 +68,16 @@ def test_cubic_spline_translation():
     test_points = [0.5,1.2,2.4,3.8,4.2]
     for tx in test_points:
         assert math.isclose(spline_sym.subs(x_sympy,tx),float(spline_fun(tx)))
+
+
+def test_cyclic_spline_translation():
+    x_sympy = sym.Symbol("x")
+    x_casadi = ca.SX.sym("x")
+    spline_sym = functions.cubic_spline(x_sympy,[1,2,3,4,5],[1,0,1,2,1],"periodic")
+    sym_mapping = {x_sympy: x_casadi}
+    spline_ca, sym_mapping = sympy_to_casadi(spline_sym, sym_mapping)
+    spline_fun = ca.Function('fun', [x_casadi], [spline_ca])
+    test_points = [1.2,2.4,3.8,4.2]
+    test_points.extend([tp+4 for tp in test_points])
+    for tx in test_points:
+        assert math.isclose(spline_sym.subs(x_sympy,tx),float(spline_fun(tx)))

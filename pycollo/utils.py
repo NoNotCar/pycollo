@@ -24,7 +24,13 @@ def _convert_segwise(x, args):
         return ca.substitute(args[0][0], ca_segwise_s, x)
     split = l//2
     return ca.if_else(x < args[split-1][1], _convert_segwise(x, args[:split]), _convert_segwise(x, args[split:]))
-
+def _convert_cyclic_segwise(x, args, wrap):
+    l = len(args)
+    if l==1:
+        return ca.substitute(args[0][0], ca_segwise_s, x)
+    split = l//2
+    mx = ca.mod(x,wrap)
+    return ca.if_else(mx < args[split-1][1], _convert_segwise(mx, args[:split]), _convert_segwise(mx, args[split:]))
 
 
 SUPPORTED_ITER_TYPES = (tuple, list, np.ndarray)
@@ -33,7 +39,8 @@ SYMPY_TO_CASADI_API_MAPPING = {"ImmutableDenseMatrix": ca.blockcat,
                                "Abs": ca.fabs,
                                "sec": lambda x: (1 / ca.cos(x)),
                                "cosec": lambda x: (1 / ca.sin(x)),
-                               "Segwise": lambda *args: _convert_segwise(args[0], args[1:])
+                               "Segwise": lambda *args: _convert_segwise(args[0], args[1:]),
+                               "CyclicSegwise": lambda *args: _convert_cyclic_segwise(args[0], args[1:],args[-1][1])
                                }
 
 
