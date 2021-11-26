@@ -28,15 +28,11 @@ def test_cubic_spline_derivative():
     for tx in test_points:
         assert math.isclose(derivative_sym.subs(x, tx), derivative_sci(tx))
 
-def test_segwise_asserts_continuity():
-    with pytest.raises(ValueError) as excinfo:
-        pycollo.functions.Segwise(x,(-s,0.0),(s+1,1.0))
-    assert "are not continuous" in str(excinfo.value)
+def test_segwise_continuity_check():
+    assert not pycollo.functions.Segwise(x,(-s,0.0),(s+1,1.0)).check_continuity()
 
 def test_segwise_asserts_derivative_continuity():
-    with pytest.raises(ValueError) as excinfo:
-        pycollo.functions.Segwise(x,(-s,0.0),(2*s,1.0))
-    assert "derivative" in str(excinfo.value)
+    assert not pycollo.functions.Segwise(x,(-s,0.0),(2*s,1.0)).check_continuity()
 
 def test_segwise_no_arguments():
     with pytest.raises(ValueError) as excinfo:
@@ -73,9 +69,7 @@ def test_segwise_nonsequential_bounds():
     assert "higher upper bound" in str(excinfo.value)
 
 def test_segwise_extra_variables():
-    with pytest.raises(ValueError) as excinfo:
-        pycollo.functions.Segwise(x,(s,0.0),(s**2+y,1.0))
-    assert "other variables" in str(excinfo.value)
+    assert not pycollo.functions.Segwise(x,(s,0.0),(s**2+y,1.0)).check_continuity()
 
 def test_segwise_variable_bounds():
     with pytest.raises(ValueError) as excinfo:
