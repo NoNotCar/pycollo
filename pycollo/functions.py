@@ -1,6 +1,6 @@
 import sympy as sym
 from scipy.interpolate import CubicSpline
-import cmath as math
+import math
 
 class Segwise(sym.Function):
     """Piecewise function for sequential linear segments.
