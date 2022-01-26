@@ -10,12 +10,21 @@ from numpy import sin, cos, tan, exp, sqrt, arctan, tanh
 import scipy.interpolate as interpolate
 import sympy as sym
 
+import pycollo.functions
 from .typing import OptionalSymsType, TupleSymsType
 
-
+ca_segwise_s = ca.SX.sym("s")
 dcdx_info_fields = ["zeta_y", "zeta_u", "zeta_s", "gamma_y", "gamma_u",
                     "gamma_s", "rho_y", "rho_u", "rho_s"]
 dcdxInfo = collections.namedtuple("dcdxInfo", dcdx_info_fields)
+
+def _convert_segwise(x, args):
+    l = len(args)
+    if l==1:
+        return ca.substitute(args[0][0], ca_segwise_s, x)
+    split = l//2
+    return ca.if_else(x < args[split-1][1], _convert_segwise(x, args[:split]), _convert_segwise(x, args[split:]))
+
 
 
 SUPPORTED_ITER_TYPES = (tuple, list, np.ndarray)
@@ -24,6 +33,7 @@ SYMPY_TO_CASADI_API_MAPPING = {"ImmutableDenseMatrix": ca.blockcat,
                                "Abs": ca.fabs,
                                "sec": lambda x: (1 / ca.cos(x)),
                                "cosec": lambda x: (1 / ca.sin(x)),
+                               "Segwise": lambda *args: _convert_segwise(args[0], args[1:])
                                }
 
 
@@ -121,6 +131,7 @@ def sympy_to_casadi(sympy_expr, sympy_to_casadi_sym_mapping, *, phase=None):
     [(x*sqrt(y)), sin((x+y)), fabs((x-y))]
 
     """
+    sympy_to_casadi_sym_mapping[pycollo.functions.Segwise.s]=ca_segwise_s
     sympy_vars = sym.Matrix(list(sympy_to_casadi_sym_mapping.keys()))
     casadi_vars = ca.vertcat(*sympy_to_casadi_sym_mapping.values())
     if casadi_vars.shape[1] > 1:

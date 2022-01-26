@@ -13,3 +13,4 @@ from . import iteration
 from . import quadrature
 from . import scaling
 from . import utils
+from . import functions
