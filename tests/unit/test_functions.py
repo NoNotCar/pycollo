@@ -109,3 +109,13 @@ def test_cyclic_segwise_wrap_check():
     assert not seg.check_continuity()
     seg = pycollo.functions.CyclicSegwise(x,(sym.sin(s),1.0),(sym.sin(s),math.tau))
     assert seg.check_continuity()
+
+def test_softplus():
+    softplus = pycollo.functions.softplus(x)
+    assert math.isclose(softplus.subs(x,-1e3),0)
+    assert math.isclose(softplus.subs(x,1e3),1e3)
+
+def test_logistic():
+    logistic = pycollo.functions.logistic(x,100)
+    assert math.isclose(logistic.subs(x, -1).evalf(), 0,abs_tol=1e-6)
+    assert math.isclose(logistic.subs(x, 1).evalf(), 1,abs_tol=1e-6)
