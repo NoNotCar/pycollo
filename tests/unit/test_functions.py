@@ -28,6 +28,15 @@ def test_cubic_spline_derivative():
     for tx in test_points:
         assert math.isclose(derivative_sym.subs(x, tx), derivative_sci(tx))
 
+def test_cyclic_spline():
+    x_data = [0, 2, 3, 4, 5]
+    y_data = [0, 0, 1, 2, 0]
+    test_points = [1.2, 2.4, 3.8, 4.2, 6.8, 10.3]
+    spline_sym = pycollo.functions.cubic_spline(x, x_data, y_data, "periodic")
+    spline_sci = CubicSpline(x_data, y_data, bc_type="periodic")
+    for tx in test_points:
+        assert math.isclose(spline_sym.subs(x, tx), spline_sci(tx%5))
+
 def test_segwise_continuity_check():
     assert not pycollo.functions.Segwise(x,(-s,0.0),(s+1,1.0)).check_continuity()
 
@@ -94,3 +103,9 @@ def test_segwise_with_expression():
     seg = pycollo.functions.Segwise(x+y,(s**3,0.0),(s**2,np.inf))
     assert seg.subs(x, -1.0).subs(y, -1.0) == -8.0
     assert seg.subs(y,1.0).subs(x,1.0) == 4.0
+
+def test_cyclic_segwise_wrap_check():
+    seg = pycollo.functions.CyclicSegwise(x,(s,1.0),(0.5*s**2+0.5,2.0))
+    assert not seg.check_continuity()
+    seg = pycollo.functions.CyclicSegwise(x,(sym.sin(s),1.0),(sym.sin(s),math.tau))
+    assert seg.check_continuity()

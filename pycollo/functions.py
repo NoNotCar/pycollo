@@ -1,6 +1,7 @@
 import sympy as sym
 from scipy.interpolate import CubicSpline
 import math
+import typing
 
 class Segwise(sym.Function):
     """Piecewise function for sequential linear segments.
@@ -80,14 +81,70 @@ class Segwise(sym.Function):
                     return eq.subs(self.s,sub_arg)
         return Segwise(sub_arg,*self.args[1:])
     def _eval_derivative(self, s):
-        return sym.diff(self.args[0],s)*Segwise(self.args[0],*((sym.diff(eq,self.s),ub) for eq,ub in self.args[1:]))
+        return sym.diff(self.args[0],s)*self.__class__(self.args[0],*((sym.diff(eq,self.s),ub) for eq,ub in self.args[1:]))
     #readonly property
     @property
     def equispaced(self):
         return self._equispaced
 
+class CyclicSegwise(Segwise):
+    """Piecewise function for repeating sequential linear segments.
 
-def cubic_spline(x,x_data,y_data):
-    """Create a cubic spline"""
-    spline = CubicSpline(x_data, y_data, bc_type="natural")
-    return Segwise(x,*[(sum(spline.c[m, i] * (Segwise.s - px)**(3-m) for m in range(4)),spline.x[i+1]) for i,px in enumerate(spline.x[:-1])])
+    Evaluates as Segwise(argument % highest_upper_bound)
+
+    arguments: Segwise(argument, (equation (in Segwise.s), upper_bound), (equation_2, upper_bound_2))"""
+    def check_continuity(self):
+        """Check that this Segwise instance is continuous with continuous 1st derivatives
+        May be slow for large numbers of segments"""
+        if super().check_continuity():
+            equations = self.args[1:]
+            # check continuity
+            first, fub = equations[0]
+            last, lub = equations[-1]
+            s1 = first.subs(self.s,0)
+            s2 = last.subs(self.s,lub)
+            d1 = sym.diff(first,self.s).subs(self.s,0)
+            d2 = sym.diff(last,self.s).subs(self.s, lub)
+            if not s1.is_Number:
+                print(f"The first segment contains other variables other than {self.s}")
+                return False
+            if not s2.is_Number:
+                print(f"The last segment contains other variables other than {self.s}")
+                return False
+            if not math.isclose(s1,s2,abs_tol=1e-9):
+                print(f"The first and last segment are not continuous.")
+                return False
+            if not math.isclose(d1,d2,abs_tol=1e-9):
+                print(f"The first and last segment do not have continuous 1st derivatives.")
+                return False
+            return True
+        return False
+    def _eval_subs(self, old, new):
+        sub_arg = self.args[0].subs(old,new)
+        if sub_arg.is_Number:
+            sub_arg = sub_arg % self._wrap
+            for eq,ub in self.args[1:]:
+                if ub>=sub_arg:
+                    return eq.subs(self.s,sub_arg)
+        return CyclicSegwise(sub_arg,*self.args[1:])
+    #readonly property
+    @property
+    def equispaced(self):
+        return self._equispaced
+    @property
+    def _wrap(self):
+        return self.args[-1][1]
+
+
+def cubic_spline(x, x_data, y_data, bounds: typing.Literal["natural", "not-a-knot", "periodic", "clamped"] = "natural"):
+    """Create a cubic spline
+
+    Setting periodic bounds will return a CyclicSegwise function"""
+    if bounds=="periodic" and not math.isclose(y_data[0],y_data[-1]):
+        raise ValueError("Periodic splines require the first and last y data points to be the same.")
+    # normalise spline to make 0 the first data point
+    min_data = min(x_data)
+    spline = CubicSpline([xd - min_data for xd in x_data], y_data, bc_type=bounds)
+    return (CyclicSegwise if bounds == "periodic" else Segwise)(x - min_data,*[
+        (sum(spline.c[m, i] * (Segwise.s - px) ** (3 - m) for m in range(4)), spline.x[i + 1]) for i, px in
+        enumerate(spline.x[:-1])])
