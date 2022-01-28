@@ -135,6 +135,88 @@ class CyclicSegwise(Segwise):
     def _wrap(self):
         return self.args[-1][1]
 
+class PolynomialSpline(sym.Function):
+    """Piecewise function for sequential linear segments.
+
+    arguments: PolynomialSpline(argument, ((polynomial_coefficients_1, upper_bound), (polynomial_coefficients_2, upper_bound_2)))"""
+    nargs=None
+    _equispaced = True
+    @classmethod
+    def __new__(cls, *args, **kwargs):
+        equispaced = True
+        try:
+            x = args[1]
+            equations = args[2:]
+        except IndexError:
+            raise ValueError("Spline created with zero arguments")
+
+        if not isinstance(x, sym.Basic):
+            raise ValueError("Spline's first argument must a sympy expression")
+        if len(equations)<2:
+            raise ValueError("Spline requires at least 2 segments to do anything")
+        try:
+            for i,(poly,ub) in enumerate(equations):
+                if not isinstance(poly,tuple):
+                    raise ValueError(f"Segment {i}'s polynomial is not in tuple format")
+                if isinstance(ub,sym.Basic) and not ub.is_Number:
+                    raise ValueError(f"Segment {i} does not have a constant upper bound")
+                if ub==sym.oo:
+                    #can't do floor division with infinity...
+                    equispaced = False
+        except TypeError:
+            raise ValueError("One or more segments are in an incorrect format")
+        except ValueError as v:
+            if "too many values to unpack (expected 2)" in v.args:
+                raise ValueError("One or more segments are in an incorrect format")
+            raise v
+
+        segment_spacing = equations[1][1]-equations[0][1]
+        # check upper bounds
+        for i,(eq,ub) in enumerate(equations[:-1]):
+            if ub>equations[i+1][1]:
+                raise ValueError(f"Segment {i} has a higher upper bound than segment {i+1}")
+            if not math.isclose(equations[i+1][1]-ub,segment_spacing,abs_tol=1e-9):
+                equispaced=False
+
+        obj = super().__new__(*args,**kwargs)
+        obj._equispaced = equispaced
+        return obj
+    # def check_continuity(self):
+    #     """Check that this Segwise instance is continuous with continuous 1st derivatives
+    #     May be slow for large numbers of segments"""
+    #     equations = self.args[1:]
+    #     # check continuity
+    #     for i,(eq,ub) in enumerate(equations[:-1]):
+    #         s1 = eq.subs(self.s,ub).evalf()
+    #         s2 = equations[i+1][0].subs(self.s,ub).evalf()
+    #         d1 = sym.diff(eq,self.s).subs(self.s,ub).evalf()
+    #         d2 = sym.diff(equations[i + 1][0],self.s).subs(self.s, ub).evalf()
+    #         if not s1.is_Number:
+    #             print(f"Segment {i} contains other variables other than {self.s}")
+    #             return False
+    #         if not s2.is_Number:
+    #             print(f"Segment {i+1} contains other variables other than {self.s}")
+    #             return False
+    #         if not math.isclose(s1,s2,abs_tol=1e-9):
+    #             print(f"Segments {i} and {i+1} are not continuous.")
+    #             return False
+    #         if not math.isclose(d1,d2,abs_tol=1e-9):
+    #             print(f"Segments {i} and {i+1} do not have continuous 1st derivatives.")
+    #             return False
+    #     return True
+    def _eval_subs(self, old, new):
+        sub_arg = self.args[0].subs(old,new)
+        if sub_arg.is_Number:
+            for poly,ub in self.args[1:]:
+                if ub>=sub_arg:
+                    return sum(n*(sub_arg-ub)**i for i,n in enumerate(poly))
+        return self.__class__(sub_arg,*self.args[1:])
+    def _eval_derivative(self, s):
+        return sym.diff(self.args[0],s)*self.__class__(self.args[0],*((tuple(n*(i+1) for n,i in enumerate(poly[1:])),ub) for poly,ub in self.args[1:]))
+    #readonly property
+    @property
+    def equispaced(self):
+        return self._equispaced
 
 def cubic_spline(x, x_data, y_data, bounds: typing.Literal["natural", "not-a-knot", "periodic", "clamped"] = "natural"):
     """Create a cubic spline
