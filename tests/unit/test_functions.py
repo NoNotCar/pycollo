@@ -110,14 +110,6 @@ def test_cyclic_segwise_wrap_check():
     seg = pycollo.functions.CyclicSegwise(x,(sym.sin(s),1.0),(sym.sin(s),math.tau))
     assert seg.check_continuity()
 
-def test_polynomial_spline():
-    spline = pycollo.functions.PolynomialSpline(x,((1,1),1.0),((2,-1,3),2.0))
-    assert spline.subs(x,0.5) == 0.5
-    assert spline.subs(x,1.75) == 2.4375
-
-def test_polynomial_spline_derivative():
-    spline = pycollo.functions.PolynomialSpline(x, ((1, 1), 1.0), ((2, -1, 3), 2.0))
-
 def test_softplus():
     softplus = pycollo.functions.softplus(x)
     assert math.isclose(softplus.subs(x,-1e3),0)

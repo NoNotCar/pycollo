@@ -31,8 +31,25 @@ def _convert_cyclic_segwise(x, args, wrap):
     split = l//2
     mx = ca.mod(x,wrap)
     return ca.if_else(mx < args[split-1][1], _convert_segwise(mx, args[:split]), _convert_segwise(mx, args[split:]))
-
-
+def _convert_poly_spline(x,idx):
+    ppoly = pycollo.functions.PolynomialSpline.poly_cache[idx]
+    degree = len(ppoly.c[:,0])-1
+    segments = [(sum(ppoly.c[m, i] * (x - px)**(degree-m) for m in range(degree+1)),ppoly.x[i+1]) for i,px in enumerate(ppoly.x[:-1])]
+    return _bisect_segments(x,segments)
+def _convert_cyclic_poly_spline(x,idx):
+    ppoly = pycollo.functions.CyclicPolynomialSpline.poly_cache[idx]
+    degree = len(ppoly.c[:, 0]) - 1
+    wrap = ppoly.x[-1]-ppoly.x[0]
+    x = ca.mod(x,wrap)
+    segments = [(sum(ppoly.c[m, i] * (x - px) ** (degree - m) for m in range(degree + 1)), ppoly.x[i + 1]) for i, px in
+                enumerate(ppoly.x[:-1])]
+    return _bisect_segments(x, segments)
+def _bisect_segments(x,segments):
+    l = len(segments)
+    if l==1:
+        return segments[0][0]
+    split = l//2
+    return ca.if_else(x < segments[split-1][1], _bisect_segments(x, segments[:split]), _bisect_segments(x, segments[split:]))
 SUPPORTED_ITER_TYPES = (tuple, list, np.ndarray)
 SYMPY_TO_CASADI_API_MAPPING = {"ImmutableDenseMatrix": ca.blockcat,
                                "MutableDenseMatrix": ca.blockcat,
@@ -40,7 +57,9 @@ SYMPY_TO_CASADI_API_MAPPING = {"ImmutableDenseMatrix": ca.blockcat,
                                "sec": lambda x: (1 / ca.cos(x)),
                                "cosec": lambda x: (1 / ca.sin(x)),
                                "Segwise": lambda *args: _convert_segwise(args[0], args[1:]),
-                               "CyclicSegwise": lambda *args: _convert_cyclic_segwise(args[0], args[1:],args[-1][1])
+                               "CyclicSegwise": lambda *args: _convert_cyclic_segwise(args[0], args[1:],args[-1][1]),
+                               "PolynomialSpline": lambda *args: _convert_poly_spline(*args),
+                               "CyclicPolynomialSpline": lambda *args: _convert_cyclic_poly_spline(*args)
                                }
 
 

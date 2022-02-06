@@ -1,6 +1,7 @@
 """Tests for the utils module."""
 
 import casadi as ca
+import numpy as np
 import pytest
 import sympy as sym
 import math
