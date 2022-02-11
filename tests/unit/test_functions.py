@@ -27,6 +27,15 @@ def test_cubic_spline_derivative():
     derivative_sci = spline_sci.derivative()
     for tx in test_points:
         assert math.isclose(derivative_sym.subs(x, tx), derivative_sci(tx))
+    # check original spline unchanged
+    for tx in test_points:
+        assert math.isclose(spline_sym.subs(x, tx), spline_sci(tx))
+
+def test_multiple_splines_independent():
+    x_data = [0, 1, 2, 3]
+    y_data_1 = [0,2,3,1]
+    y_data_2 = [1,0,1,0]
+    assert pycollo.functions.cubic_spline(x,x_data,y_data_1)!=pycollo.functions.cubic_spline(x,x_data,y_data_2)
 
 def test_cyclic_spline():
     x_data = [0, 2, 3, 4, 5]

@@ -147,28 +147,35 @@ class _PPolyStash(object):
         return self._cache[item]
 class PolynomialSpline(sym.Function):
     """Increased performance spline via "data smuggling"?"""
-    nargs=None
+    nargs=2
     _equispaced = True
     poly_cache = _PPolyStash()
-    def set_ppoly(self,ppoly:PPoly):
-        self._ppoly = ppoly
-        equispace = ppoly.x[1]-ppoly.x[0]
-        for x1,x2 in zip(ppoly.x[:-1],ppoly.x[1:]):
-            if not math.isclose((x2-x1),equispace):
-                self._equispaced = False
+    @classmethod
+    def __new__(cls, *args, **kwargs):
+        expression = args[1]
+        ppoly = args[2]
+        if not isinstance(expression, sym.Basic):
+            raise ValueError("PolynomialSpline's first argument must a sympy expression")
+        if not isinstance(ppoly,PPoly):
+            raise ValueError("PolynomialSpline's second argument must a scipy PPoly")
+        idx = cls.poly_cache.register_poly(ppoly)
+        equispace = ppoly.x[1] - ppoly.x[0]
+        for x1, x2 in zip(ppoly.x[:-1], ppoly.x[1:]):
+            if not math.isclose((x2 - x1), equispace):
+                equispaced = False
                 break
         else:
-            self._equispaced = True
+            equispaced = True
+        obj = super().__new__(cls,expression,idx)
+        obj._equispaced=equispaced
+        return obj
     def _eval_subs(self, old, new):
         sub_arg = self.args[0].subs(old,new)
         if sub_arg.is_Number:
             return self._ppoly(sub_arg)
-        new = self.__class__(sub_arg)
-        new.set_ppoly(self._ppoly)
-        return new
+        return self.__class__(sub_arg,self._ppoly)
     def _eval_derivative(self, s):
-        derivative = self.__class__(*self.args)
-        derivative.set_ppoly(self._ppoly.derivative())
+        derivative = self.__class__(self.args[0],self._ppoly.derivative())
         return sym.diff(self.args[0],s)*derivative
     #readonly property
     @property
@@ -176,27 +183,16 @@ class PolynomialSpline(sym.Function):
         return self._equispaced
     @property
     def _ppoly(self):
-        if len(self.args)==1:
-            raise RuntimeError("PPoly not set yet!")
         return self.poly_cache[self.args[1]]
-    @_ppoly.setter
-    def _ppoly(self,ppoly:PPoly):
-        idx = self.poly_cache.register_poly(ppoly)
-        self._args = (self.args[0],sym.sympify(idx))
 class CyclicPolynomialSpline(PolynomialSpline):
-    _wrap = None
-    def set_ppoly(self,ppoly:PPoly):
-        if not math.isclose(ppoly(ppoly.x[0]),ppoly(ppoly.x[-1])):
-            raise ValueError("Cyclic spline doesn't have cyclic PPoly!")
-        self._wrap = ppoly.x[-1]-ppoly.x[0]
-        super().set_ppoly(ppoly)
     def _eval_subs(self, old, new):
         sub_arg = self.args[0].subs(old,new)
         if sub_arg.is_Number:
             return self._ppoly(sub_arg % self._wrap)
-        new = self.__class__(sub_arg)
-        new.set_ppoly(self._ppoly)
-        return new
+        return super()._eval_subs(old,new)
+    @property
+    def _wrap(self):
+        return self._ppoly.x[-1]-self._ppoly.x[0]
 def cubic_spline(x, x_data, y_data, bounds: typing.Literal["natural", "not-a-knot", "periodic", "clamped"] = "natural"):
     """Create a cubic spline
 
@@ -206,9 +202,7 @@ def cubic_spline(x, x_data, y_data, bounds: typing.Literal["natural", "not-a-kno
     # normalise spline to make 0 the first data point
     min_data = min(x_data)
     spline = CubicSpline([xd - min_data for xd in x_data], y_data, bc_type=bounds)
-    pspline = (CyclicPolynomialSpline if bounds=="periodic" else PolynomialSpline)(x-min_data)
-    pspline.set_ppoly(spline)
-    return pspline
+    return (CyclicPolynomialSpline if bounds=="periodic" else PolynomialSpline)(x-min_data,spline)
 
 def softplus(x,k=1.0):
     """Approximates x if x>0 else 0 safely"""
